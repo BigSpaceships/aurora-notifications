@@ -1,6 +1,16 @@
-use chrono::{DateTime, Days, FixedOffset, Utc};
-use serde::{Deserialize, Serialize};
+use std::fmt;
+
 use anyhow::Result;
+use chrono::{DateTime, Days, FixedOffset, Utc};
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[derive(Error, Debug, Clone)]
+pub enum IDError {
+    #[error("invalid ID format: {0}")]
+    Format(String),
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RecordJson {
@@ -13,7 +23,50 @@ struct RecordJson {
 pub struct Record {
     issue_datetime: DateTime<FixedOffset>,
     message: String,
-    product_id: String,
+    product_id: ID,
+}
+
+#[derive(Debug)]
+pub enum ID {
+    Mag {
+        strength: u8,
+        severity: WarningSeverity,
+    },
+    Flux {
+        strength: u8,
+        severity: WarningSeverity,
+    },
+    Message(String),
+}
+
+#[derive(Debug)]
+pub enum WarningSeverity {
+    Warning,
+    Alert,
+}
+
+impl ID {
+    fn from_string(string: String) -> Result<ID> {
+        // TODO: maybe I should just use the space weather message code in the message
+        let re = Regex::new(r"(\A[A-Z]{1,2})(\d+)([AFWS])").unwrap();
+
+        let caps = re.captures(&string);
+
+        if caps.is_none() {
+            return Ok(ID::Message(string.clone()));
+        }
+
+        let caps = caps.unwrap();
+
+        let key = &caps[1];
+        let level = &caps[2];
+        let severitiy = &caps[3];
+
+        return Ok(ID::Mag {
+            strength: level.parse()?,
+            severity: WarningSeverity::Alert,
+        });
+    }
 }
 
 impl Record {
@@ -21,7 +74,13 @@ impl Record {
         let new_time_string = json.issue_datetime + "+0000";
         let time = DateTime::parse_from_str(&new_time_string, "%Y-%m-%d %H:%M:%S%.3f %z")?;
 
-        return Ok(Record { issue_datetime: time, message: json.message, product_id: json.product_id })
+        let id = ID::from_string(json.product_id)?;
+
+        return Ok(Record {
+            issue_datetime: time,
+            message: json.message,
+            product_id: id,
+        });
     }
 }
 
@@ -40,11 +99,14 @@ fn parse_json(text: &str) -> Result<Vec<Record>> {
     return v;
 }
 
-fn filter_records(records: Vec<Record>) -> Vec<Record> {
+fn filter_records(records: Vec<Record>, days_in_past: u8) -> Vec<Record> {
     let now: DateTime<Utc> = Utc::now();
-    let yesterday = now - Days::new(1);
+    let yesterday = now - Days::new(days_in_past.into());
 
-    return records.into_iter().filter(|record| record.issue_datetime > yesterday).collect();
+    return records
+        .into_iter()
+        .filter(|record| record.issue_datetime > yesterday)
+        .collect();
 }
 
 pub fn get_records(days_in_past: u8) -> Result<Vec<Record>> {
@@ -52,7 +114,7 @@ pub fn get_records(days_in_past: u8) -> Result<Vec<Record>> {
 
     let all_records = parse_json(&json_string)?;
 
-    let filtered_records = filter_records(all_records);
+    let filtered_records = filter_records(all_records, days_in_past);
 
     return Ok(filtered_records);
 }
