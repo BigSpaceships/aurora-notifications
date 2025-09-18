@@ -1,6 +1,6 @@
-use std::fmt;
+use std::{default, fmt};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Days, FixedOffset, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -43,6 +43,7 @@ pub enum ID {
 pub enum WarningSeverity {
     Warning,
     Alert,
+    Forcast,
 }
 
 impl ID {
@@ -59,12 +60,30 @@ impl ID {
         let caps = caps.unwrap();
 
         let key = &caps[1];
-        let level = &caps[2];
-        let severitiy = &caps[3];
+        let level = &caps[2].parse::<u8>()?;
+        let severitiy_str = &caps[3];
 
-        return Ok(ID::Mag {
-            strength: level.parse()?,
-            severity: WarningSeverity::Alert,
+        let severity = match severitiy_str {
+            "A" => WarningSeverity::Alert,
+            "S" => WarningSeverity::Alert,
+            "W" => WarningSeverity::Warning,
+            "F" => WarningSeverity::Forcast,
+            string => Err(anyhow!("unknown severity: {string}"))?,
+        };
+
+        return Ok(match key {
+            "K" => ID::Mag {
+                strength: *level,
+                severity: severity,
+            },
+            "EF" => ID::Flux {
+                strength: *level,
+                severity: severity,
+            },
+            key => {
+                println!("{key}");
+                ID::Message(key.to_string())
+            }
         });
     }
 }
