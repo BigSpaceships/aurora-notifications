@@ -21,9 +21,9 @@ struct RecordJson {
 
 #[derive(Debug)]
 pub struct Record {
-    issue_datetime: DateTime<FixedOffset>,
-    message: String,
-    product_id: ID,
+    pub issue_datetime: DateTime<FixedOffset>,
+    pub message: String,
+    pub product_id: ID,
 }
 
 #[derive(Debug)]
@@ -88,12 +88,51 @@ impl ID {
     }
 }
 
+#[derive(Debug)]
+pub struct RecordMessage {
+    space_weather_access_code: String,
+    sn: u64,
+    issue_time: DateTime<FixedOffset>,
+    message: String,
+}
+
+impl RecordMessage {
+    fn from_message(message: String) -> Result<RecordMessage> {
+        let re = Regex::new(
+            r"(?ms)Space Weather Message Code:\s*(.*?)\s*Serial Number:\s*(\d*)\s*Issue Time:\s*(.{20})\s*(.*)",
+        )?;
+
+        let caps = re.captures(&message);
+
+        if caps.is_none() {
+            return Err(anyhow!("invalid format of record message: {message}"));
+        }
+
+        let caps = caps.unwrap();
+        // 2025 Sep 29 1200 UTC
+        let time_string = &caps[3];
+        let time_string = time_string[..time_string.len()-3].to_string() + "+0000 00.000";
+
+        let time = DateTime::parse_from_str(&time_string, "%Y %b %d %H%M %z %S%.3f")?;
+
+        return Ok(RecordMessage {
+            space_weather_access_code: caps[1].to_string(),
+            sn: caps[2].parse::<u64>()?,
+            issue_time: time,
+            message: caps[4].to_string(),
+        });
+    }
+}
+
 impl Record {
     fn from_json(json: RecordJson) -> Result<Record> {
+        // 2025-09-29 12:00:08.047
         let new_time_string = json.issue_datetime + "+0000";
         let time = DateTime::parse_from_str(&new_time_string, "%Y-%m-%d %H:%M:%S%.3f %z")?;
 
         let id = ID::from_string(json.product_id)?;
+
+        // print!("{:#?}", RecordMessage::from_message(json.message.clone()));
 
         return Ok(Record {
             issue_datetime: time,
@@ -120,11 +159,11 @@ fn parse_json(text: &str) -> Result<Vec<Record>> {
 
 fn filter_records(records: Vec<Record>, days_in_past: u8) -> Vec<Record> {
     let now: DateTime<Utc> = Utc::now();
-    let yesterday = now - Days::new(days_in_past.into());
+    let filter_date = now - Days::new(days_in_past.into());
 
     return records
         .into_iter()
-        .filter(|record| record.issue_datetime > yesterday)
+        .filter(|record| record.issue_datetime > filter_date)
         .collect();
 }
 
