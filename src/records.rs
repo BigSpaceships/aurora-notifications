@@ -1,5 +1,3 @@
-use std::{default, fmt};
-
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Days, FixedOffset, Utc};
 use regex::Regex;
@@ -19,10 +17,29 @@ struct RecordJson {
     product_id: String,
 }
 
+// TODO: use struct for common record info (sn, issue time), but then use enum for all other stuff
+// maybe should just use enum based on warning kind and then save all the other data somewhere
+// else? IDK why is this such a mess. Work on just having magnetic info stuff first so I can set up
+// alerts I think
+//
+// Data to store for all:
+// Issued time, 
+// Serial number 
+// Serial number extension
+//
+// Warnings have a start and end time
+//
+// Alerts have a time the threshold was reached
+//
+// Magnetic stuff has level
+//
+// Have table for all events
+// Table for magnetic stuff 
+
 #[derive(Debug)]
 pub struct Record {
     pub issue_datetime: DateTime<FixedOffset>,
-    pub message: String,
+    pub message: RecordMessage,
     pub product_id: ID,
 }
 
@@ -90,10 +107,10 @@ impl ID {
 
 #[derive(Debug)]
 pub struct RecordMessage {
-    space_weather_access_code: String,
-    sn: u64,
-    issue_time: DateTime<FixedOffset>,
-    message: String,
+    pub space_weather_access_code: String,
+    pub sn: u64,
+    pub issue_time: DateTime<FixedOffset>,
+    pub message: String,
 }
 
 impl RecordMessage {
