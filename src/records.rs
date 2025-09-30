@@ -149,19 +149,18 @@ impl Record {
 
         let id = ID::from_string(json.product_id)?;
 
-        // print!("{:#?}", RecordMessage::from_message(json.message.clone()));
+        let message = RecordMessage::from_message(json.message)?;
 
         return Ok(Record {
             issue_datetime: time,
-            message: json.message,
+            message: message,
             product_id: id,
         });
     }
 }
 
-fn fetch_json() -> Result<String> {
-    let res =
-        reqwest::blocking::get("https://services.swpc.noaa.gov/products/alerts.json")?.text()?;
+async fn fetch_json() -> Result<String> {
+    let res = reqwest::get("https://services.swpc.noaa.gov/products/alerts.json").await?.text().await?;
 
     return Ok(res);
 }
@@ -184,8 +183,8 @@ fn filter_records(records: Vec<Record>, days_in_past: u8) -> Vec<Record> {
         .collect();
 }
 
-pub fn get_records(days_in_past: u8) -> Result<Vec<Record>> {
-    let json_string = fetch_json()?;
+pub async fn get_records(days_in_past: u8) -> Result<Vec<Record>> {
+    let json_string = fetch_json().await?;
 
     let all_records = parse_json(&json_string)?;
 
