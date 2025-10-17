@@ -35,10 +35,13 @@ impl RecordDB {
 
         update_id_references(conn).await?;
 
-        query_as!(RecordDB,
+        query_as!(
+            RecordDB,
             r#"
             SELECT issue_time, serial_num, serial_num_ext, id, id_ext FROM event WHERE id = $1
-        "#, id.id)
+        "#,
+            id.id
+        )
         .fetch_one(conn)
         .await
         .map_err(|err| anyhow!("Failed to fetch updated event: {}", err))
@@ -72,28 +75,28 @@ impl RecordDB {
         .await
         .map_err(|err| anyhow!("Failed to upload events: {}", err))?;
 
-        update_id_references(conn).await?;
+        RecordDB::update_id_references(conn).await?;
 
         return Ok(added_records.len());
     }
-}
 
-pub async fn update_id_references<'c, C>(conn: C) -> Result<()>
-where
-    C: Executor<'c, Database = Postgres> + Copy,
-{
-    let res = query!(
-        r#"
+    pub async fn update_id_references<'c, C>(conn: C) -> Result<()>
+    where
+        C: Executor<'c, Database = Postgres> + Copy,
+    {
+        query!(
+            r#"
             UPDATE event as e 
             SET id_ext = other.id
             FROM event AS other
             WHERE e.serial_num_ext = other.serial_num
             "#
-    )
-    .execute(conn)
-    .await?;
+        )
+        .execute(conn)
+        .await?;
 
-    Ok(())
+        Ok(())
+    }
 }
 
 pub async fn connect_db() -> Pool<Postgres> {
