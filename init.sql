@@ -3,7 +3,7 @@ CREATE TYPE alert_type AS ENUM ('warning', 'alert');
 CREATE TABLE event (
     issue_time TIMESTAMP NOT NULL,
     serial_num INT NOT NULL,
-    serial_num_ext INT NOT NULL,
+    serial_num_ext INT,
     id SERIAL PRIMARY KEY
 );
 

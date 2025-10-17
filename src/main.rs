@@ -1,8 +1,8 @@
-use std::env;
-
 use chrono_tz::US::Eastern;
-use sqlx::postgres::PgPoolOptions;
 
+use crate::db::RecordDB;
+
+mod db;
 mod records;
 
 #[tokio::main]
@@ -11,16 +11,17 @@ async fn main() {
 
     let records = records::get_records(2).await;
 
-    let db_pool = PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&env::var("DATABASE_URL").expect("DATABASE_URL must be set"))
-        .await
-        .expect("Could not create pool");
+    let db_pool = db::connect_db().await;
 
     let records = records.unwrap();
+
+    // let hi = RecordDB::add_record(&records[0], &db_pool).await;
+    // let hi = RecordDB::add_all_records(&records, &db_pool).await;
+
     for record in records {
         let local_time = record.issue_datetime.with_timezone(&Eastern);
 
-        println!("{:?}, {:#?}", local_time,  record);
+        RecordDB::add_record(&record, &db_pool).await;
+        // println!("{:?}, {:#?}", local_time,  record);
     }
 }

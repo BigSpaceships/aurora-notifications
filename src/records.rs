@@ -137,6 +137,7 @@ impl RecordMessage {
 
         let sn_ext_caps = sn_ext_re.captures(&message);
         let sn_ext = sn_ext_caps.map(|cap| cap[0].parse::<i32>().ok()).flatten();
+
         return Ok(RecordMessage {
             space_weather_access_code: caps[1].to_string(),
             sn: caps[2].parse::<i32>()?,
