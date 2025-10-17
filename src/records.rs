@@ -136,7 +136,7 @@ impl RecordMessage {
         let sn_ext_re = Regex::new(r"(?ms)Extension to Serial Number:\s*(\d*)")?;
 
         let sn_ext_caps = sn_ext_re.captures(&message);
-        let sn_ext = sn_ext_caps.map(|cap| cap[0].parse::<i32>().ok()).flatten();
+        let sn_ext = sn_ext_caps.map(|cap| cap[1].parse::<i32>().ok()).flatten();
 
         return Ok(RecordMessage {
             space_weather_access_code: caps[1].to_string(),
