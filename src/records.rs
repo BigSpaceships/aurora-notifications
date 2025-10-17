@@ -23,8 +23,8 @@ struct RecordJson {
 // alerts I think
 //
 // Data to store for all:
-// Issued time, 
-// Serial number 
+// Issued time,
+// Serial number
 // Serial number extension
 //
 // Warnings have a start and end time
@@ -34,7 +34,7 @@ struct RecordJson {
 // Magnetic stuff has level
 //
 // Have table for all events
-// Table for magnetic stuff 
+// Table for magnetic stuff
 
 #[derive(Debug)]
 pub struct Record {
@@ -108,7 +108,8 @@ impl ID {
 #[derive(Debug)]
 pub struct RecordMessage {
     pub space_weather_access_code: String,
-    pub sn: u64,
+    pub sn: i32,
+    pub sn_ext: Option<i32>,
     pub issue_time: DateTime<FixedOffset>,
     pub message: String,
 }
@@ -128,13 +129,18 @@ impl RecordMessage {
         let caps = caps.unwrap();
         // 2025 Sep 29 1200 UTC
         let time_string = &caps[3];
-        let time_string = time_string[..time_string.len()-3].to_string() + "+0000 00.000";
+        let time_string = time_string[..time_string.len() - 3].to_string() + "+0000 00.000";
 
         let time = DateTime::parse_from_str(&time_string, "%Y %b %d %H%M %z %S%.3f")?;
 
+        let sn_ext_re = Regex::new(r"(?ms)Extension to Serial Number:\s*(\d*)")?;
+
+        let sn_ext_caps = sn_ext_re.captures(&message);
+        let sn_ext = sn_ext_caps.map(|cap| cap[0].parse::<i32>().ok()).flatten();
         return Ok(RecordMessage {
             space_weather_access_code: caps[1].to_string(),
-            sn: caps[2].parse::<u64>()?,
+            sn: caps[2].parse::<i32>()?,
+            sn_ext: sn_ext,
             issue_time: time,
             message: caps[4].to_string(),
         });
@@ -160,7 +166,10 @@ impl Record {
 }
 
 async fn fetch_json() -> Result<String> {
-    let res = reqwest::get("https://services.swpc.noaa.gov/products/alerts.json").await?.text().await?;
+    let res = reqwest::get("https://services.swpc.noaa.gov/products/alerts.json")
+        .await?
+        .text()
+        .await?;
 
     return Ok(res);
 }
