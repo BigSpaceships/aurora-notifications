@@ -1,5 +1,5 @@
-use chrono_tz::US::Eastern;
 use anyhow::Result;
+use chrono_tz::US::Eastern;
 
 use crate::db::RecordDB;
 
@@ -7,7 +7,7 @@ mod db;
 mod records;
 
 #[tokio::main]
-async fn main() -> Result<()>{
+async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let records = records::get_records_no_limit().await;
@@ -28,5 +28,5 @@ async fn main() -> Result<()>{
         // println!("{:?}, {:#?}", local_time,  record);
     }
 
-    return Ok(())
+    return Ok(());
 }
