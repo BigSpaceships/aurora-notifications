@@ -4,7 +4,8 @@ CREATE TABLE event (
     issue_time TIMESTAMP NOT NULL,
     serial_num INT NOT NULL,
     serial_num_ext INT,
-    id SERIAL PRIMARY KEY
+    id SERIAL PRIMARY KEY,
+    id_ext INT REFERENCES event(id)
 );
 
 CREATE TABLE geomagnetic (
