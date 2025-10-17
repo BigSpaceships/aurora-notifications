@@ -11,12 +11,12 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let records = records::get_records_no_limit().await;
+    // let records = records::get_records(2).await;
 
     let db_pool = db::connect_db().await;
 
     let records = records.unwrap();
 
-    // let hi = RecordDB::add_record(&records[0], &db_pool).await;
     let num_records_added = RecordDB::add_all_records(&records, &db_pool).await?;
 
     println!("added {} records", num_records_added);
@@ -24,8 +24,8 @@ async fn main() -> Result<()> {
     for record in records {
         let local_time = record.issue_datetime.with_timezone(&Eastern);
 
-        // RecordDB::add_record(&record, &db_pool).await;
-        // println!("{:?}, {:#?}", local_time,  record);
+        // let record = RecordDB::add_record(&record, &db_pool).await?;
+        // println!("{:#?}", record);
     }
 
     return Ok(());

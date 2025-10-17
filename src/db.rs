@@ -20,17 +20,28 @@ pub struct RecordDB {
 impl RecordDB {
     pub async fn add_record<'c, C>(data: &Record, conn: C) -> Result<Self>
     where
-        C: Executor<'c, Database = Postgres>,
+        C: Executor<'c, Database = Postgres> + Copy,
     {
-        query_as!(RecordDB, r#"
+        let id = query!(r#"
         WITH new_record AS (
-            INSERT INTO event (issue_time, serial_num, serial_num_ext, id_ext) VALUES ($1, $2, $3, NULL) RETURNING *
+            INSERT INTO event (issue_time, serial_num, serial_num_ext, id_ext) VALUES ($1, $2, $3, NULL)
+            RETURNING *
         )
-        SELECT new_record.issue_time, new_record.serial_num, new_record.serial_num_ext, new_record.id, new_record.id_ext
+        SELECT new_record.id
         FROM new_record
         "#, data.issue_datetime.naive_local(), data.message.sn, data.message.sn_ext)
         .fetch_one(conn)
-        .await.map_err(|err| anyhow!("Failed to Create Event: {}", err))
+        .await.map_err(|err| anyhow!("Failed to Create Event: {}", err))?;
+
+        update_id_references(conn).await?;
+
+        query_as!(RecordDB,
+            r#"
+            SELECT issue_time, serial_num, serial_num_ext, id, id_ext FROM event WHERE id = $1
+        "#, id.id)
+        .fetch_one(conn)
+        .await
+        .map_err(|err| anyhow!("Failed to fetch updated event: {}", err))
     }
 
     pub async fn add_all_records<'c, C>(data: &Vec<Record>, conn: C) -> Result<usize>
@@ -61,13 +72,28 @@ impl RecordDB {
         .await
         .map_err(|err| anyhow!("Failed to upload events: {}", err))?;
 
-        let records_with_ext: Vec<i32> = added_records
-            .iter()
-            .filter_map(|record| record.serial_num_ext)
-            .collect();
+        update_id_references(conn).await?;
 
         return Ok(added_records.len());
     }
+}
+
+pub async fn update_id_references<'c, C>(conn: C) -> Result<()>
+where
+    C: Executor<'c, Database = Postgres> + Copy,
+{
+    let res = query!(
+        r#"
+            UPDATE event as e 
+            SET id_ext = other.id
+            FROM event AS other
+            WHERE e.serial_num_ext = other.serial_num
+            "#
+    )
+    .execute(conn)
+    .await?;
+
+    Ok(())
 }
 
 pub async fn connect_db() -> Pool<Postgres> {

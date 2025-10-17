@@ -5,7 +5,7 @@ CREATE TABLE event (
     serial_num INT NOT NULL,
     serial_num_ext INT,
     id SERIAL PRIMARY KEY,
-    id_ext INT REFERENCES event(id)
+    id_ext INT REFERENCES event(id) ON DELETE CASCADE
 );
 
 CREATE TABLE geomagnetic (
