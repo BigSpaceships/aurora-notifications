@@ -193,10 +193,16 @@ fn filter_records(records: Vec<Record>, days_in_past: u8) -> Vec<Record> {
         .collect();
 }
 
-pub async fn get_records(days_in_past: u8) -> Result<Vec<Record>> {
+pub async fn get_records_no_limit() -> Result<Vec<Record>> {
     let json_string = fetch_json().await?;
 
     let all_records = parse_json(&json_string)?;
+
+    return Ok(all_records);
+}
+
+pub async fn get_records(days_in_past: u8) -> Result<Vec<Record>> {
+    let all_records = get_records_no_limit().await?;
 
     let filtered_records = filter_records(all_records, days_in_past);
 

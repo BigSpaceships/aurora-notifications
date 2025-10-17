@@ -31,6 +31,33 @@ impl RecordDB {
         .fetch_one(conn)
         .await.map_err(|err| anyhow!("Failed to Create Event: {}", err))
     }
+
+    pub async fn add_all_records<'c, C>(data: &Vec<Record>, conn: C) -> Result<usize>
+    where
+        C: Executor<'c, Database = Postgres>,
+    {
+        let sns: Vec<i32> = data.iter().map(|record| record.message.sn).collect();
+        let sn_exts: Vec<i32> = data.iter().map(|record| record.message.sn_ext.unwrap_or(-1)).collect();
+        let issue_times: Vec<NaiveDateTime> = data.iter().map(|record| record.issue_datetime.naive_local()).collect();
+        let added_records = query_as!(RecordDB,
+            r#"
+            INSERT INTO event (issue_time, serial_num, serial_num_ext)
+            SELECT * FROM (
+                SELECT issue_time, serial_num, NULLIF(serial_num_ext, -1) as serial_num_ext 
+                FROM UNNEST($1::int4[], $2::int4[], $3::timestamp[]) as a(serial_num, serial_num_ext, issue_time)
+            ) 
+            WHERE serial_num NOT IN (SELECT serial_num FROM event)
+                AND issue_time NOT IN (SELECT issue_time FROM event)
+            RETURNING *
+            "#,
+            &sns, &sn_exts, &issue_times
+        )
+        .fetch_all(conn)
+        .await
+        .map_err(|err| anyhow!("Failed to fetch events: {}", err))?;
+
+        return Ok(added_records.len());
+    }
 }
 
 pub async fn connect_db() -> Pool<Postgres> {
